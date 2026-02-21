@@ -1,0 +1,52 @@
+services:
+  # --- INFRAESTRUCTURA ---
+  discovery-server:
+    build: ./discovery-server
+    ports:
+      - "8761:8761"
+    networks:
+      - sentinel-network
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - discovery-server
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+    networks:
+      - sentinel-network
+
+  # --- BASE DE DATOS ---
+  postgres-db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=sentinel_db
+      - POSTGRES_USER=${DB_USER:-admin}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-admin}
+    networks:
+      - sentinel-network
+
+  # --- MICROSERVICIO DE NEGOCIO ---
+  scan-service:
+    build: ./scan-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - discovery-server
+      - postgres-db
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/sentinel_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=admin
+      - VT_API_KEY= ${VT_API_KEY}
+    networks:
+      - sentinel-network
+
+networks:
+  sentinel-network:
+    driver: bridge

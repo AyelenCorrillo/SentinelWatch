@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      # AÑADIMOS ESTA SECCIÓN DE RUTAS
+      routes:
+        - id: scan-service-route
+          uri: lb://SCAN-SERVICE
+          predicates:
+            - Path=/scan-service/**
+          filters:
+            - RewritePath=/scan-service/(?<segment>.*), /${segment}
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/ 

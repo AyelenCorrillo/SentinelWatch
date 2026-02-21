@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentinelWatch | Threat Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { 
+            background-image: 
+                linear-gradient(rgba(16, 185, 129, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(16, 185, 129, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(6, 78, 59, 0.15) 0%, transparent 80%);
+            pointer-events: none;
+            z-index: -1;
+        }
+    </style>
+</head>
+
+<body class="bg-neutral-950 text-neutral-200 min-h-screen">
+
+    <nav class="border-b border-neutral-800 p-4 bg-neutral-900/50">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></div>
+                <span class="text-xl font-bold tracking-tighter text-white uppercase">
+                    Sentinel<span class="text-emerald-500">Watch</span>
+                </span>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <div class="hidden md:flex flex-col items-end">
+                    <span class="text-[9px] text-neutral-500 font-mono tracking-widest uppercase">Estado_Sistema</span>
+                    <span class="text-[10px] text-emerald-500 font-mono font-bold tracking-tighter italic">SISTEMA_EN_LINEA</span>
+                </div>
+                
+                <form th:action="@{/logout}" method="post" class="border-l border-neutral-800 pl-6">
+                    <button type="submit" class="text-[10px] text-red-500/70 hover:text-red-500 font-bold border border-red-500/20 px-4 py-2 rounded-md transition-all hover:bg-red-500/10 uppercase tracking-widest">
+                        CERRAR SESIÓN
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="container mx-auto px-4 py-12">
+        <div class="max-w-3xl mx-auto text-center mb-12">
+            <h2 class="text-4xl font-extrabold text-white mb-4">Análisis de Amenazas</h2>
+            <p class="text-neutral-400 mb-8 text-sm">Introduce un hash SHA-256 para consultar la base de datos de VirusTotal.</p>
+            
+            <div th:if="${errorMessage}" 
+                th:class="${resultado == null ? 'bg-blue-500/10 border-blue-500/50' : 'bg-red-500/10 border-red-500/50'} + ' mb-6 p-4 border rounded-lg animate-pulse flex items-center gap-3 justify-center'">
+                <span th:class="${resultado == null ? 'text-blue-500' : 'text-red-500'} + ' text-xs font-bold tracking-widest uppercase'"> 
+                    [!] <span th:text="${resultado == null ? 'INFO_LOG' : 'SYSTEM_ALERT'}"></span>: 
+                </span>
+                <span class="text-neutral-200 text-xs font-mono" th:text="${errorMessage}"></span>
+            </div>
+
+            <form th:action="@{/scan}" method="post" enctype="multipart/form-data" class="relative group">
+                <div class="flex flex-col gap-4">
+                    <input type="text" name="hash" 
+                        class="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-4 px-6 text-blue-400 focus:outline-none focus:border-blue-500 transition-all font-mono text-sm"
+                        placeholder="Pega un hash SHA-256...">
+                    
+                    <span class="text-neutral-500 text-xs">O TAMBIÉN</span>
+
+                    <input type="file" name="archivo" 
+                        class="w-full bg-neutral-900 border border-neutral-700 rounded-lg py-3 px-6 text-neutral-400 
+                            file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
+                            file:text-xs file:font-semibold file:bg-emerald-600 file:text-white 
+                            hover:file:bg-emerald-500 cursor-pointer text-sm">
+
+                    <button type="submit" 
+                            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-md font-bold 
+                                transition-colors text-xs tracking-tighter shadow-lg shadow-emerald-900/20">
+                        INICIAR ANÁLISIS DE AMENAZAS
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div th:if="${resultado}" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    
+            <div class="bg-neutral-900/50 p-6 rounded-2xl border-l-4 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
+                <div class="text-[10px] text-red-500/50 mb-2 tracking-[0.2em] font-bold">AMENAZAS_DETECTADAS</div>
+                <div class="text-3xl font-black text-red-500 mb-1" 
+                    th:text="${resultado.data.attributes.last_analysis_stats.malicious}">0</div>
+                <div class="text-[10px] text-neutral-500 uppercase font-mono">Motores Maliciosos</div>
+            </div>
+
+            <div class="bg-neutral-900/50 p-6 rounded-2xl border-l-4 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                <div class="text-[10px] text-emerald-500/50 mb-2 tracking-[0.2em] font-bold">VERIFICADO_LIMPIO</div>
+                <div class="text-3xl font-black text-emerald-500 mb-1" 
+                    th:text="${resultado.data.attributes.last_analysis_stats.harmless}">0</div>
+                <div class="text-[10px] text-neutral-500 uppercase font-mono">Motores Limpios</div>
+            </div>
+
+            <div class="bg-neutral-900/50 p-6 rounded-2xl border-l-4 border-amber-500 shadow-[0_0_20px_rgba(255,191,0,0.1)]">
+                <div class="text-[10px] text-amber-500/50 mb-2 tracking-[0.2em] font-bold">LOGS_SOSPECHOSOS</div>
+                <div class="text-3xl font-black text-amber-500 mb-1" 
+                    th:text="${resultado.data.attributes.last_analysis_stats.suspicious}">0</div>
+                <div class="text-[10px] text-neutral-500 uppercase font-mono">Alertas Sospechosas</div>
+            </div>
+
+            <div class="bg-neutral-900/50 p-6 rounded-2xl border-l-4 border-blue-500 shadow-[0_0_20px_rgba(0,150,255,0.1)]">
+                <div class="text-[10px] text-blue-500/50 mb-2 tracking-[0.2em] font-bold">SIN_REGISTROS</div>
+                <div class="text-3xl font-black text-blue-500 mb-1" 
+                    th:text="${resultado.data.attributes.last_analysis_stats.undetected}">0</div>
+                <div class="text-[10px] text-neutral-500 uppercase font-mono">Motores Sin Registro</div>
+            </div>
+        </div>
+
+        <div class="max-w-5xl mx-auto mt-12">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-neutral-400 tracking-widest uppercase flex items-center gap-2">
+                    <span class="w-2 h-4 bg-neutral-700"></span> Recientes // LOGS_DEL_SISTEMA
+                </h3>
+                
+                <form th:action="@{/clear-history}" method="post" onsubmit="return confirm('¿Deseas purgar permanentemente los registros del sistema?');">
+                    <button type="submit" class="text-[10px] text-amber-500/60 hover:text-amber-500 font-bold border border-amber-500/20 px-3 py-1 rounded transition-all uppercase tracking-tighter">
+                        [ LIMPIAR_HISTORIAL ]
+                    </button>
+                </form>
+            </div>
+            <div class="glass rounded-xl overflow-hidden">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-neutral-800/50 text-neutral-500 uppercase text-[10px] tracking-wider">
+                        <tr>
+                            <th class="p-4">Registro Temporal</th>
+                            <th class="p-4">Hash Identificado</th>
+                            <th class="p-4">Estado Final</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-neutral-800">
+                        <tr th:each="item : ${historial}" class="hover:bg-neutral-900/50 transition-colors">
+                            <td class="p-4 text-neutral-500 font-mono text-xs" th:text="${#temporals.format(item.scanDate, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td class="p-4 text-blue-400 font-mono text-xs truncate max-w-[300px]" th:text="${item.fileHash}"></td>
+                            <td class="p-4">
+                                <span th:class="${item.status == 'MALICIOUS' ? 'text-red-500 bg-red-500/10' : 'text-green-500 bg-green-500/10'} + ' px-2 py-1 rounded text-[10px] font-bold border border-current/20'" 
+                                      th:text="${item.status == 'MALICIOUS' ? 'MALICIOSO' : 'LIMPIO'}"></span>
+                            </td>
+                            <td class="p-4 text-center">
+                                <button type="button"
+                                        th:data-hash="${item.fileHash}"
+                                        onclick="seleccionarYAnalizar(this.getAttribute('data-hash'))"
+                                        class="text-emerald-500/50 hover:text-emerald-400 hover:scale-110 transition-all font-bold font-mono text-xs">
+                                    [ CARGAR_INFO ]
+                                </button>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(historial)}">
+                            <td colspan="3" class="p-8 text-center text-neutral-600 italic">No se han registrado análisis en la base de datos local.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    <script>
+        const socket = new SockJS('/ws-sentinel');
+        const stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe('/topic/notifications', function (message) {
+                showNotification(message.body);
+            });
+        });
+        function showNotification(text) {
+            const toast = document.createElement('div');
+            toast.className = "fixed top-5 right-5 bg-neutral-900 border-l-4 border-emerald-600 p-4 text-xs font-mono shadow-2xl animate-bounce z-50 rounded-r";
+            toast.innerHTML = `<span class="text-emerald-500 font-bold text-center">[SYSTEM_MSG]</span> <span class="text-white">${text}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        }
+    </script>
+    <script>
+        /*<![CDATA[*/
+        function seleccionarYAnalizar(hash) {
+            const input = document.querySelector('input[name="hash"]');
+            if (input) {
+                // 1. Cargamos el hash
+                input.value = hash;
+                
+                // 2. Efecto visual de resaltado en el input
+                input.classList.add('ring-2', 'ring-emerald-500/50');
+                
+                // 3. Subimos la pantalla suavemente para ver los rectángulos
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // 4. Enviamos el formulario automáticamente después de un breve delay
+                setTimeout(() => {
+                    input.closest('form').submit();
+                }, 500);
+            }
+        }
+        /*]]>*/
+    </script>
+
+    <footer class="mt-20 border-t border-neutral-800 p-8 text-center text-neutral-600 text-[10px] uppercase tracking-widest font-mono">
+        &copy; 2026 Unidad de Inteligencia SentinelWatch | Conexión Cifrada: AES-256 
+    </footer>
+
+</body>
+
+</html>
